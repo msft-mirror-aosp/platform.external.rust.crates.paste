@@ -171,3 +171,87 @@ mod test_none_delimited_single_ident {
         assert_eq!(f(), "i32x4");
     }
 }
+
+mod test_to_lower {
+    macro_rules! m {
+        ($id:ident) => {
+            paste::item! {
+                fn [<my_ $id:lower _here>](_arg: u8) -> &'static str {
+                    stringify!([<$id:lower>])
+                }
+            }
+        };
+    }
+
+    m!(Test);
+
+    #[test]
+    fn test_to_lower() {
+        assert_eq!(my_test_here(0), "test");
+    }
+}
+
+#[test]
+fn test_env_to_lower() {
+    paste::expr! {
+        struct [<Lib env!("CARGO_PKG_NAME"):lower>];
+
+        let _ = Libpaste;
+    }
+}
+
+mod test_to_upper {
+    macro_rules! m {
+        ($id:ident) => {
+            paste::item! {
+                const [<MY_ $id:upper _HERE>]: &str = stringify!([<$id:upper>]);
+            }
+        };
+    }
+
+    m!(Test);
+
+    #[test]
+    fn test_to_upper() {
+        assert_eq!(MY_TEST_HERE, "TEST");
+    }
+}
+
+#[test]
+fn test_env_to_upper() {
+    paste::expr! {
+        const [<LIB env!("CARGO_PKG_NAME"):upper>]: &str = "libpaste";
+
+        let _ = LIBPASTE;
+    }
+}
+
+mod test_to_snake {
+    macro_rules! m {
+        ($id:ident) => {
+            paste::item! {
+                const DEFAULT_SNAKE: &str = stringify!([<$id:snake>]);
+                const LOWER_SNAKE: &str = stringify!([<$id:snake:lower>]);
+                const UPPER_SNAKE: &str = stringify!([<$id:snake:upper>]);
+            }
+        };
+    }
+
+    m!(ThisIsButATest);
+
+    #[test]
+    fn test_to_snake() {
+        assert_eq!(DEFAULT_SNAKE, "this_is_but_a_test");
+        assert_eq!(LOWER_SNAKE, "this_is_but_a_test");
+        assert_eq!(UPPER_SNAKE, "THIS_IS_BUT_A_TEST");
+    }
+}
+
+#[test]
+fn test_env_to_snake() {
+    paste::expr! {
+        const [<LIB env!("CARGO_PKG_NAME"):snake:upper>]: &str = "libpaste";
+
+        let _ = LIBPASTE;
+    }
+}
