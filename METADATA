@@ -1,7 +1,5 @@
 name: "paste"
-description:
-    "Macros for all your token pasting needs"
-
+description: "Macros for all your token pasting needs"
 third_party {
   url {
     type: HOMEPAGE
@@ -11,7 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/dtolnay/paste"
   }
-  version: "0.1.7"
-  last_upgrade_date { year: 2020 month: 3 day: 17 }
+  version: "0.1.10"
   license_type: NOTICE
+  last_upgrade_date {
+    year: 2020
+    month: 4
+    day: 17
+  }
 }
