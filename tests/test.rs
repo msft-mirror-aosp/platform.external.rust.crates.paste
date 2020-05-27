@@ -172,6 +172,26 @@ mod test_none_delimited_single_ident {
     }
 }
 
+mod test_none_delimited_single_lifetime {
+    macro_rules! m {
+        ($life:lifetime) => {
+            paste::item! {
+                pub struct S;
+                impl<$life> S {
+                    fn f() {}
+                }
+            }
+        };
+    }
+
+    m!('a);
+
+    #[test]
+    fn test() {
+        S::f();
+    }
+}
+
 mod test_to_lower {
     macro_rules! m {
         ($id:ident) => {
@@ -253,5 +273,94 @@ fn test_env_to_snake() {
         const [<LIB env!("CARGO_PKG_NAME"):snake:upper>]: &str = "libpaste";
 
         let _ = LIBPASTE;
+    }
+}
+
+mod test_to_camel {
+    macro_rules! m {
+        ($id:ident) => {
+            paste::item! {
+                const DEFAULT_CAMEL: &str = stringify!([<$id:camel>]);
+                const LOWER_CAMEL: &str = stringify!([<$id:camel:lower>]);
+                const UPPER_CAMEL: &str = stringify!([<$id:camel:upper>]);
+            }
+        };
+    }
+
+    m!(this_is_but_a_test);
+
+    #[test]
+    fn test_to_camel() {
+        assert_eq!(DEFAULT_CAMEL, "ThisIsButATest");
+        assert_eq!(LOWER_CAMEL, "thisisbutatest");
+        assert_eq!(UPPER_CAMEL, "THISISBUTATEST");
+    }
+}
+
+#[test]
+fn test_env_to_camel() {
+    paste::expr! {
+        const [<LIB env!("CARGO_PKG_NAME"):camel>]: &str = "libpaste";
+
+        let _ = LIBPaste;
+    }
+}
+
+mod test_doc_expr {
+    // https://github.com/dtolnay/paste/issues/29
+
+    macro_rules! doc_expr {
+        ($doc:expr) => {
+            paste::item! {
+                #[doc = $doc]
+                pub struct S;
+            }
+        };
+    }
+
+    doc_expr!(stringify!());
+
+    #[test]
+    fn test_doc_expr() {
+        let _: S;
+    }
+}
+
+mod test_type_in_path {
+    // https://github.com/dtolnay/paste/issues/31
+
+    mod keys {
+        #[derive(Default)]
+        pub struct Mib<T = ()>(std::marker::PhantomData<T>);
+    }
+
+    macro_rules! types {
+        ($mib:ty) => {
+            paste::item! {
+                #[derive(Default)]
+                pub struct S(pub keys::$mib);
+            }
+        };
+    }
+
+    macro_rules! write {
+        ($fn:ident, $field:ty) => {
+            paste::item! {
+                pub fn $fn() -> $field {
+                    $field::default()
+                }
+            }
+        };
+    }
+
+    types! {Mib<[usize; 2]>}
+    write! {get_a, keys::Mib}
+    write! {get_b, usize}
+
+    #[test]
+    fn test_type_in_path() {
+        let _: S;
+        let _ = get_a;
+        let _ = get_b;
     }
 }
