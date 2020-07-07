@@ -137,6 +137,9 @@
 
 #![no_std]
 
+// ANDROID: Use std to allow building as a dylib.
+extern crate std;
+
 use proc_macro_hack::proc_macro_hack;
 
 /// Paste identifiers within a macro invocation that expands to an expression.
