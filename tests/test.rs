@@ -364,3 +364,48 @@ mod test_type_in_path {
         let _ = get_b;
     }
 }
+
+mod test_pat_in_expr_position {
+    // https://github.com/xiph/rav1e/pull/2324/files
+
+    macro_rules! rav1e_bad {
+        ($e:pat) => {
+            paste::item! {
+                #[test]
+                fn test() {
+                    let _ = $e;
+                }
+            }
+        };
+    }
+
+    rav1e_bad!(std::fmt::Error);
+}
+
+#[cfg(not(no_literal_matcher))]
+mod test_x86_feature_literal {
+    // work around https://github.com/rust-lang/rust/issues/72726
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    macro_rules! my_is_x86_feature_detected {
+        ($feat:literal) => {
+            paste::item! {
+                #[test]
+                fn test() {
+                    let _ = is_x86_feature_detected!($feat);
+                }
+            }
+        };
+    }
+
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+    macro_rules! my_is_x86_feature_detected {
+        ($feat:literal) => {
+            #[ignore]
+            #[test]
+            fn test() {}
+        };
+    }
+
+    my_is_x86_feature_detected!("mmx");
+}
