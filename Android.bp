@@ -13,9 +13,5 @@ rust_library {
 }
 
 // dependent_library ["feature_list"]
-//   paste-impl-0.1.16
+//   paste-impl-0.1.18
 //   proc-macro-hack-0.5.16
-//   proc-macro2-1.0.18 "default,proc-macro"
-//   quote-1.0.7 "default,proc-macro"
-//   syn-1.0.33 "clone-impls,default,derive,full,parsing,printing,proc-macro,quote,visit"
-//   unicode-xid-0.2.1 "default"
