@@ -153,6 +153,14 @@ fn test_local_variable() {
     }
 }
 
+#[test]
+fn test_empty() {
+    paste::expr! {
+        assert_eq!(stringify!([<y y>]), "yy");
+        assert_eq!(stringify!([<>]).replace(' ', ""), "[<>]");
+    }
+}
+
 mod test_none_delimited_single_ident {
     macro_rules! m {
         ($id:ident) => {
@@ -362,6 +370,29 @@ mod test_type_in_path {
         let _: S;
         let _ = get_a;
         let _ = get_b;
+    }
+}
+
+mod test_type_in_fn_arg {
+    // https://github.com/dtolnay/paste/issues/38
+
+    fn _jit_address(_node: ()) {}
+
+    macro_rules! jit_reexport {
+        ($fn:ident, $arg:ident : $typ:ty) => {
+            paste::item! {
+                pub fn $fn($arg: $typ) {
+                    [<_jit_ $fn>]($arg);
+                }
+            }
+        };
+    }
+
+    jit_reexport!(address, node: ());
+
+    #[test]
+    fn test_type_in_fn_arg() {
+        let _ = address;
     }
 }
 
