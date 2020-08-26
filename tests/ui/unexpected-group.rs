@@ -1,7 +1,7 @@
 use paste::paste;
 
 paste! {
-    fn [<:lower x>]() {}
+    fn [<a {} b>]() {}
 }
 
 fn main() {}

@@ -1,7 +1,7 @@
 use paste::paste;
 
 paste! {
-    fn [<:lower x>]() {}
+    fn [<env!(1.31)>]() {}
 }
 
 fn main() {}
