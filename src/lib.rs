@@ -140,15 +140,15 @@
 
 extern crate proc_macro;
 
-mod doc;
+mod attr;
 mod error;
+mod segment;
 
-use crate::doc::{do_paste_doc, is_pasted_doc};
+use crate::attr::expand_attr;
 use crate::error::{Error, Result};
-use proc_macro::{
-    token_stream, Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream, TokenTree,
-};
-use std::iter::{self, FromIterator, Peekable};
+use crate::segment::Segment;
+use proc_macro::{Delimiter, Group, Ident, Punct, Spacing, Span, TokenStream, TokenTree};
+use std::iter;
 use std::panic;
 
 #[proc_macro]
@@ -199,24 +199,24 @@ fn expand(input: TokenStream, contains_paste: &mut bool) -> Result<TokenStream> 
                 let span = group.span();
                 if delimiter == Delimiter::Bracket && is_paste_operation(&content) {
                     let segments = parse_bracket_as_segments(content, span)?;
-                    let pasted = paste_segments(span, &segments)?;
-                    expanded.extend(pasted);
+                    let pasted = segment::paste(&segments)?;
+                    let tokens = pasted_to_tokens(pasted, span)?;
+                    expanded.extend(tokens);
                     *contains_paste = true;
                 } else if delimiter == Delimiter::None && is_flat_group(&content) {
                     expanded.extend(content);
                     *contains_paste = true;
-                } else if delimiter == Delimiter::Bracket
-                    && (lookbehind == Lookbehind::Pound || lookbehind == Lookbehind::PoundBang)
-                    && is_pasted_doc(&content)
-                {
-                    let pasted = do_paste_doc(&content, span);
-                    let mut group = Group::new(delimiter, pasted);
-                    group.set_span(span);
-                    expanded.extend(iter::once(TokenTree::Group(group)));
-                    *contains_paste = true;
                 } else {
                     let mut group_contains_paste = false;
-                    let nested = expand(content, &mut group_contains_paste)?;
+                    let nested = match delimiter {
+                        Delimiter::Bracket if lookbehind == Lookbehind::Pound => {
+                            expand_attr(content, span, &mut group_contains_paste)?
+                        }
+                        Delimiter::Bracket if lookbehind == Lookbehind::PoundBang => {
+                            expand_attr(content, span, &mut group_contains_paste)?
+                        }
+                        _ => expand(content, &mut group_contains_paste)?,
+                    };
                     let group = if group_contains_paste {
                         let mut group = Group::new(delimiter, nested);
                         group.set_span(span);
@@ -302,22 +302,6 @@ fn is_flat_group(input: &TokenStream) -> bool {
     state == State::Ident || state == State::Literal || state == State::Lifetime
 }
 
-struct LitStr {
-    value: String,
-    span: Span,
-}
-
-struct Colon {
-    span: Span,
-}
-
-enum Segment {
-    String(String),
-    Apostrophe(Span),
-    Env(LitStr),
-    Modifier(Colon, Ident),
-}
-
 fn is_paste_operation(input: &TokenStream) -> bool {
     let mut tokens = input.clone().into_iter();
 
@@ -347,7 +331,7 @@ fn parse_bracket_as_segments(input: TokenStream, scope: Span) -> Result<Vec<Segm
         None => return Err(Error::new(scope, "expected `[< ... >]`")),
     }
 
-    let segments = parse_segments(&mut tokens, scope)?;
+    let mut segments = segment::parse(&mut tokens)?;
 
     match &tokens.next() {
         Some(TokenTree::Punct(punct)) if punct.as_char() == '>' => {}
@@ -355,218 +339,39 @@ fn parse_bracket_as_segments(input: TokenStream, scope: Span) -> Result<Vec<Segm
         None => return Err(Error::new(scope, "expected `[< ... >]`")),
     }
 
-    match tokens.next() {
-        Some(unexpected) => Err(Error::new(
+    if let Some(unexpected) = tokens.next() {
+        return Err(Error::new(
             unexpected.span(),
             "unexpected input, expected `[< ... >]`",
-        )),
-        None => Ok(segments),
+        ));
     }
-}
 
-fn parse_segments(
-    tokens: &mut Peekable<token_stream::IntoIter>,
-    scope: Span,
-) -> Result<Vec<Segment>> {
-    let mut segments = Vec::new();
-    while match tokens.peek() {
-        None => false,
-        Some(TokenTree::Punct(punct)) => punct.as_char() != '>',
-        Some(_) => true,
-    } {
-        match tokens.next().unwrap() {
-            TokenTree::Ident(ident) => {
-                let mut fragment = ident.to_string();
-                if fragment.starts_with("r#") {
-                    fragment = fragment.split_off(2);
-                }
-                if fragment == "env"
-                    && match tokens.peek() {
-                        Some(TokenTree::Punct(punct)) => punct.as_char() == '!',
-                        _ => false,
-                    }
-                {
-                    tokens.next().unwrap(); // `!`
-                    let expect_group = tokens.next();
-                    let parenthesized = match &expect_group {
-                        Some(TokenTree::Group(group))
-                            if group.delimiter() == Delimiter::Parenthesis =>
-                        {
-                            group
-                        }
-                        Some(wrong) => return Err(Error::new(wrong.span(), "expected `(`")),
-                        None => return Err(Error::new(scope, "expected `(` after `env!`")),
-                    };
-                    let mut inner = parenthesized.stream().into_iter();
-                    let lit = match inner.next() {
-                        Some(TokenTree::Literal(lit)) => lit,
-                        Some(wrong) => {
-                            return Err(Error::new(wrong.span(), "expected string literal"))
-                        }
-                        None => {
-                            return Err(Error::new2(
-                                ident.span(),
-                                parenthesized.span(),
-                                "expected string literal as argument to env! macro",
-                            ))
-                        }
-                    };
-                    let lit_string = lit.to_string();
-                    if lit_string.starts_with('"')
-                        && lit_string.ends_with('"')
-                        && lit_string.len() >= 2
-                    {
-                        // TODO: maybe handle escape sequences in the string if
-                        // someone has a use case.
-                        segments.push(Segment::Env(LitStr {
-                            value: lit_string[1..lit_string.len() - 1].to_owned(),
-                            span: lit.span(),
-                        }));
-                    } else {
-                        return Err(Error::new(lit.span(), "expected string literal"));
-                    }
-                    if let Some(unexpected) = inner.next() {
-                        return Err(Error::new(
-                            unexpected.span(),
-                            "unexpected token in env! macro",
-                        ));
-                    }
-                } else {
-                    segments.push(Segment::String(fragment));
-                }
+    for segment in &mut segments {
+        if let Segment::String(string) = segment {
+            if string.value.contains(&['#', '\\', '.', '+'][..]) {
+                return Err(Error::new(string.span, "unsupported literal"));
             }
-            TokenTree::Literal(lit) => {
-                let mut lit_string = lit.to_string();
-                if lit_string.contains(&['#', '\\', '.', '+'][..]) {
-                    return Err(Error::new(lit.span(), "unsupported literal"));
-                }
-                lit_string = lit_string
-                    .replace('"', "")
-                    .replace('\'', "")
-                    .replace('-', "_");
-                segments.push(Segment::String(lit_string));
-            }
-            TokenTree::Punct(punct) => match punct.as_char() {
-                '_' => segments.push(Segment::String("_".to_owned())),
-                '\'' => segments.push(Segment::Apostrophe(punct.span())),
-                ':' => {
-                    let colon = Colon { span: punct.span() };
-                    let ident = match tokens.next() {
-                        Some(TokenTree::Ident(ident)) => ident,
-                        wrong => {
-                            let span = wrong.as_ref().map_or(scope, TokenTree::span);
-                            return Err(Error::new(span, "expected identifier after `:`"));
-                        }
-                    };
-                    segments.push(Segment::Modifier(colon, ident));
-                }
-                _ => return Err(Error::new(punct.span(), "unexpected punct")),
-            },
-            TokenTree::Group(group) => {
-                if group.delimiter() == Delimiter::None {
-                    let mut inner = group.stream().into_iter().peekable();
-                    let nested = parse_segments(&mut inner, group.span())?;
-                    if let Some(unexpected) = inner.next() {
-                        return Err(Error::new(unexpected.span(), "unexpected token"));
-                    }
-                    segments.extend(nested);
-                } else {
-                    return Err(Error::new(group.span(), "unexpected token"));
-                }
-            }
+            string.value = string
+                .value
+                .replace('"', "")
+                .replace('\'', "")
+                .replace('-', "_");
         }
     }
+
     Ok(segments)
 }
 
-fn paste_segments(span: Span, segments: &[Segment]) -> Result<TokenStream> {
-    let mut evaluated = Vec::new();
-    let mut is_lifetime = false;
+fn pasted_to_tokens(mut pasted: String, span: Span) -> Result<TokenStream> {
+    let mut tokens = TokenStream::new();
 
-    for segment in segments {
-        match segment {
-            Segment::String(segment) => {
-                evaluated.push(segment.clone());
-            }
-            Segment::Apostrophe(span) => {
-                if is_lifetime {
-                    return Err(Error::new(*span, "unexpected lifetime"));
-                }
-                is_lifetime = true;
-            }
-            Segment::Env(var) => {
-                let resolved = match std::env::var(&var.value) {
-                    Ok(resolved) => resolved,
-                    Err(_) => {
-                        return Err(Error::new(
-                            var.span,
-                            &format!("no such env var: {:?}", var.value),
-                        ));
-                    }
-                };
-                let resolved = resolved.replace('-', "_");
-                evaluated.push(resolved);
-            }
-            Segment::Modifier(colon, ident) => {
-                let last = match evaluated.pop() {
-                    Some(last) => last,
-                    None => {
-                        return Err(Error::new2(colon.span, ident.span(), "unexpected modifier"))
-                    }
-                };
-                match ident.to_string().as_str() {
-                    "lower" => {
-                        evaluated.push(last.to_lowercase());
-                    }
-                    "upper" => {
-                        evaluated.push(last.to_uppercase());
-                    }
-                    "snake" => {
-                        let mut acc = String::new();
-                        let mut prev = '_';
-                        for ch in last.chars() {
-                            if ch.is_uppercase() && prev != '_' {
-                                acc.push('_');
-                            }
-                            acc.push(ch);
-                            prev = ch;
-                        }
-                        evaluated.push(acc.to_lowercase());
-                    }
-                    "camel" => {
-                        let mut acc = String::new();
-                        let mut prev = '_';
-                        for ch in last.chars() {
-                            if ch != '_' {
-                                if prev == '_' {
-                                    for chu in ch.to_uppercase() {
-                                        acc.push(chu);
-                                    }
-                                } else if prev.is_uppercase() {
-                                    for chl in ch.to_lowercase() {
-                                        acc.push(chl);
-                                    }
-                                } else {
-                                    acc.push(ch);
-                                }
-                            }
-                            prev = ch;
-                        }
-                        evaluated.push(acc);
-                    }
-                    _ => {
-                        return Err(Error::new2(
-                            colon.span,
-                            ident.span(),
-                            "unsupported modifier",
-                        ));
-                    }
-                }
-            }
-        }
+    if pasted.starts_with('\'') {
+        let mut apostrophe = TokenTree::Punct(Punct::new('\'', Spacing::Joint));
+        apostrophe.set_span(span);
+        tokens.extend(iter::once(apostrophe));
+        pasted.remove(0);
     }
 
-    let pasted = evaluated.into_iter().collect::<String>();
     let ident = match panic::catch_unwind(|| Ident::new(&pasted, span)) {
         Ok(ident) => TokenTree::Ident(ident),
         Err(_) => {
@@ -576,11 +381,7 @@ fn paste_segments(span: Span, segments: &[Segment]) -> Result<TokenStream> {
             ));
         }
     };
-    let tokens = if is_lifetime {
-        let apostrophe = TokenTree::Punct(Punct::new('\'', Spacing::Joint));
-        vec![apostrophe, ident]
-    } else {
-        vec![ident]
-    };
-    Ok(TokenStream::from_iter(tokens))
+
+    tokens.extend(iter::once(ident));
+    Ok(tokens)
 }
