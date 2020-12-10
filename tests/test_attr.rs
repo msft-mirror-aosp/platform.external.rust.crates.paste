@@ -1,4 +1,27 @@
 use paste::paste;
+use paste_test_suite::paste_test;
+
+#[test]
+fn test_attr() {
+    paste! {
+        #[paste_test(k = "val" "ue")]
+        struct A;
+
+        #[paste_test_suite::paste_test(k = "val" "ue")]
+        struct B;
+
+        #[::paste_test_suite::paste_test(k = "val" "ue")]
+        struct C;
+
+        #[paste_test(k = "va" [<l u>] e)]
+        struct D;
+    }
+
+    let _ = A;
+    let _ = B;
+    let _ = C;
+    let _ = D;
+}
 
 #[test]
 fn test_paste_cfg() {
