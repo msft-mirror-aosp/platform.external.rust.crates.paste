@@ -13,7 +13,7 @@
 [package]
 edition = "2018"
 name = "paste"
-version = "1.0.1"
+version = "1.0.4"
 authors = ["David Tolnay <dtolnay@gmail.com>"]
 description = "Macros for all your token pasting needs"
 readme = "README.md"
@@ -25,6 +25,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [lib]
 proc-macro = true
+[dev-dependencies.paste-test-suite]
+version = "0"
+
 [dev-dependencies.rustversion]
 version = "1.0"
 
