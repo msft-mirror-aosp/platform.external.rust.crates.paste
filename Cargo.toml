@@ -13,7 +13,7 @@
 [package]
 edition = "2018"
 name = "paste"
-version = "1.0.4"
+version = "1.0.5"
 authors = ["David Tolnay <dtolnay@gmail.com>"]
 description = "Macros for all your token pasting needs"
 readme = "README.md"
