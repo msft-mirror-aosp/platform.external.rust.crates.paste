@@ -134,6 +134,8 @@ macro_rules! method_new {
     };
 }
 
+pub struct Paste {}
+
 method_new!(Paste);  // expands to #[doc = "Create a new `Paste` object"]
 ```
 
