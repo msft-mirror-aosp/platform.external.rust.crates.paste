@@ -5,24 +5,17 @@
       "path": "external/rust/crates/gdbstub_arch"
     }
   ],
+  "postsubmit": [
+    {
+      "name": "virtualizationservice_device_test"
+    }
+  ],
   "presubmit": [
-    {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
     {
       "name": "virtualizationservice_device_test"
     }
   ],
   "presubmit-rust": [
-    {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
     {
       "name": "virtualizationservice_device_test"
     }
