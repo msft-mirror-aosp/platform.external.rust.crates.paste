@@ -5,11 +5,6 @@
       "path": "external/rust/crates/gdbstub_arch"
     }
   ],
-  "postsubmit": [
-    {
-      "name": "virtualizationservice_device_test"
-    }
-  ],
   "presubmit": [
     {
       "name": "virtualizationservice_device_test"
