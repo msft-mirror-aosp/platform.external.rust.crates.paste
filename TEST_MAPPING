@@ -7,12 +7,18 @@
   ],
   "presubmit": [
     {
-      "name": "virtualizationservice_device_test"
+      "name": "bluetooth_with_facades.test"
+    },
+    {
+      "name": "virtualizationmanager_device_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "virtualizationservice_device_test"
+      "name": "bluetooth_with_facades.test"
+    },
+    {
+      "name": "virtualizationmanager_device_test"
     }
   ]
 }
