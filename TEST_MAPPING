@@ -3,22 +3,9 @@
   "imports": [
     {
       "path": "external/rust/crates/gdbstub_arch"
-    }
-  ],
-  "presubmit": [
-    {
-      "name": "bluetooth_with_facades.test"
     },
     {
-      "name": "virtualizationmanager_device_test"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "bluetooth_with_facades.test"
-    },
-    {
-      "name": "virtualizationmanager_device_test"
+      "path": "packages/modules/Virtualization/virtualizationmanager"
     }
   ]
 }
