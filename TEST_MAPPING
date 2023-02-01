@@ -3,16 +3,9 @@
   "imports": [
     {
       "path": "external/rust/crates/gdbstub_arch"
-    }
-  ],
-  "presubmit": [
+    },
     {
-      "name": "virtualizationservice_device_test"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "virtualizationservice_device_test"
+      "path": "packages/modules/Virtualization/virtualizationmanager"
     }
   ]
 }
