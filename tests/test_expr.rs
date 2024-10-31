@@ -107,7 +107,7 @@ fn test_env_literal() {
 #[test]
 fn test_env_present() {
     paste! {
-        struct [<Lib "paste">];
+        struct [<Lib env!("CARGO_PKG_NAME")>];
 
         let _ = Libpaste;
     }
@@ -162,7 +162,7 @@ fn test_empty() {
 #[test]
 fn test_env_to_lower() {
     paste! {
-        struct [<Lib "paste":lower>];
+        struct [<Lib env!("CARGO_PKG_NAME"):lower>];
 
         let _ = Libpaste;
     }
@@ -171,7 +171,7 @@ fn test_env_to_lower() {
 #[test]
 fn test_env_to_upper() {
     paste! {
-        const [<LIB "paste":upper>]: &str = "libpaste";
+        const [<LIB env!("CARGO_PKG_NAME"):upper>]: &str = "libpaste";
 
         let _ = LIBPASTE;
     }
@@ -180,7 +180,7 @@ fn test_env_to_upper() {
 #[test]
 fn test_env_to_snake() {
     paste! {
-        const [<LIB "paste":snake:upper>]: &str = "libpaste";
+        const [<LIB env!("CARGO_PKG_NAME"):snake:upper>]: &str = "libpaste";
 
         let _ = LIBPASTE;
     }
@@ -190,7 +190,7 @@ fn test_env_to_snake() {
 fn test_env_to_camel() {
     paste! {
         #[allow(non_upper_case_globals)]
-        const [<LIB "paste":camel>]: &str = "libpaste";
+        const [<LIB env!("CARGO_PKG_NAME"):camel>]: &str = "libpaste";
 
         let _ = LIBPaste;
     }
